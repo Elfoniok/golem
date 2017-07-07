@@ -290,7 +290,7 @@ class TaskHeaderKeeper(object):
             return
         self.min_price = config_desc.min_price
         self.supported_tasks = []
-        for id_, th in self.task_headers.items():
+        for id_, th in list(self.task_headers.items()):
             if self.is_supported(th.__dict__):
                 self.supported_tasks.append(id_)
 

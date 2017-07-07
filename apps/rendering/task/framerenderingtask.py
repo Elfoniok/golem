@@ -111,7 +111,7 @@ class FrameRenderingTask(RenderingTask):
     def get_output_states(self):
         if self.use_frames:
             result = []
-            for k, v in self.frames_state.items():
+            for k, v in list(self.frames_state.items()):
                 insort(result, (k, v.serialize()))
             return result
         return []
@@ -120,7 +120,7 @@ class FrameRenderingTask(RenderingTask):
         if self.task_definition.options.use_frames:
             subtask_ids = self.frames_subtasks.get(to_unicode(frame), [])
         else:
-            subtask_ids = iter(self.subtasks_given.keys())
+            subtask_ids = iter(list(self.subtasks_given.keys()))
 
         subtasks = dict()
 
@@ -156,7 +156,7 @@ class FrameRenderingTask(RenderingTask):
     def get_frames_to_subtasks(self):
         frames = OrderedDict((frame_num, []) for frame_num in self.frames)
 
-        for subtask_id, subtask in self.subtasks_given.items():
+        for subtask_id, subtask in list(self.subtasks_given.items()):
             if subtask and subtask['frames']:
                 for frame in subtask['frames']:
                     frames[frame].append(subtask_id)

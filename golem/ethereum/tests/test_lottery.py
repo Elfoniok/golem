@@ -51,7 +51,7 @@ class Lottery(object):
         self.value = sum(payments.values())
         M = 2**32
         tickets = []
-        for addr, v in payments.items():
+        for addr, v in list(payments.items()):
             l = v * M / self.value
             tickets.append(self.Ticket(addr, 0, l))
 

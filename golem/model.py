@@ -2,7 +2,7 @@
 
 
 import datetime
-from ethereum.utils import denoms
+from .ethereum.utils import denoms
 import jsonpickle as json
 import logging
 from enum import Enum

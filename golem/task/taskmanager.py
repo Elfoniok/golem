@@ -606,7 +606,7 @@ class TaskManager(TaskEventListener):
 
     def get_tasks_dict(self):
         return [self.get_task_dict(task_id) for task_id
-                in self.tasks.keys()]
+                in list(self.tasks.keys())]
 
     def get_subtask_dict(self, subtask_id):
         task_id = self.subtask2task_mapping[subtask_id]
@@ -617,7 +617,7 @@ class TaskManager(TaskEventListener):
     def get_subtasks_dict(self, task_id):
         task_state = self.tasks_states[task_id]
         subtasks = task_state.subtask_states
-        return [subtask.to_dictionary() for subtask in subtasks.values()]
+        return [subtask.to_dictionary() for subtask in list(subtasks.values())]
 
     def get_subtasks_borders(self, task_id, part=1):
         task = self.tasks[task_id]
@@ -628,7 +628,7 @@ class TaskManager(TaskEventListener):
         return {
             to_unicode(subtask_id): task_type.get_task_border(
                 subtask, task.task_definition, total_subtasks, as_path=True
-            ) for subtask_id, subtask in task.get_subtasks(part).items()
+            ) for subtask_id, subtask in list(task.get_subtasks(part).items())
         }
 
     def get_task_preview(self, task_id, single=False):

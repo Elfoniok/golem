@@ -565,14 +565,14 @@ class TestClientRPCMethods(TestWithDatabase, LogTestCase):
         self.assertIsInstance(res_dirs, dict)
         self.assertTrue(len(res_dirs) == 3)
 
-        for key, value in res_dirs.items():
+        for key, value in list(res_dirs.items()):
             self.assertIsInstance(key, str)
             self.assertIsInstance(value, str)
             self.assertTrue(self.path in value)
 
         res_dir_sizes = c.get_res_dirs_sizes()
 
-        for key, value in res_dir_sizes.items():
+        for key, value in list(res_dir_sizes.items()):
             self.assertIsInstance(key, str)
             self.assertIsInstance(value, str)
             self.assertTrue(key in res_dirs)

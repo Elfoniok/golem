@@ -257,7 +257,7 @@ class CLI(object):
     def _read_arguments(cls, interactive):
         if interactive:
             try:
-                line = input('>> ')
+                line = eval(input('>> '))
             except ValueError:
                 cls.working = False
             else:
@@ -274,7 +274,7 @@ class CLI(object):
 
     @classmethod
     def _normalize_namespace(cls, namespace):
-        return {cls._normalize_key(k): v for k, v in namespace.__dict__.items()}
+        return {cls._normalize_key(k): v for k, v in list(namespace.__dict__.items())}
 
     @staticmethod
     def _normalize_key(key):

@@ -46,7 +46,7 @@ class TaskDetailsDialogCustomizer(Customizer):
         dialog.show()
 
     def __get_subtask(self, subtask_id):
-        for subtask in self.task_desc.task_state.subtask_states.values():
+        for subtask in list(self.task_desc.task_state.subtask_states.values()):
             if subtask.subtask_id == subtask_id:
                 return subtask
         return None

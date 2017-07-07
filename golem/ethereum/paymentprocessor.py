@@ -30,7 +30,7 @@ def _encode_payments(payments):
 
     args = []
     value = 0
-    for to, v in paymap.items():
+    for to, v in list(paymap.items()):
         max_value = 2 ** 96
         if v >= max_value:
             raise ValueError("v should be less than {}".format(max_value))
@@ -272,7 +272,7 @@ class PaymentProcessor(Service):
 
     def monitor_progress(self):
         confirmed = []
-        for h, payments in self._inprogress.items():
+        for h, payments in list(self._inprogress.items()):
             hstr = '0x' + h.encode('hex')
             log.info("Checking {:.6} tx [{}]".format(hstr, len(payments)))
             receipt = self.__client.get_transaction_receipt(hstr)

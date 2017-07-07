@@ -40,7 +40,7 @@ else:
             if CIPHERNAMES.issubset(set(pyelliptic.Cipher.get_all_cipher())):
                 break
 if 'pyelliptic' not in dir() or not CIPHERNAMES.issubset(set(pyelliptic.Cipher.get_all_cipher())):
-    print('required ciphers %r not available in openssl library' % CIPHERNAMES)
+    print(('required ciphers %r not available in openssl library' % CIPHERNAMES))
     if sys.platform == 'darwin':
         print('use homebrew or macports to install newer openssl')
         print('> brew install openssl / > sudo port install openssl')

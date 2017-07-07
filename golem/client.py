@@ -93,7 +93,7 @@ class Client(HardwarePresetsMixin):
         self.config_desc = ClientConfigDescriptor()
         self.config_desc.init_from_app_config(config)
 
-        for key, val in config_overrides.items():
+        for key, val in list(config_overrides.items()):
             if not hasattr(self.config_desc, key):
                 self.quit()  # quit only closes underlying services (for now)
                 raise AttributeError(
@@ -527,7 +527,7 @@ class Client(HardwarePresetsMixin):
         peers = self.p2pservice.incoming_peers or dict()
         return [
             DictSerializer.dump(p['node'], typed=False)
-            for p in peers.values()
+            for p in list(peers.values())
         ]
 
     def get_connected_peers(self):
@@ -798,7 +798,7 @@ class Client(HardwarePresetsMixin):
 
     def get_res_dirs_sizes(self):
         return {str(name): str(du(d))
-                for name, d in self.get_res_dirs().items()}
+                for name, d in list(self.get_res_dirs().items())}
 
     def get_res_dir(self, dir_type):
         if dir_type == DirectoryType.COMPUTED:
@@ -847,7 +847,7 @@ class Client(HardwarePresetsMixin):
 
     def get_known_tasks(self):
         headers = {}
-        for key, header in self.task_server.task_keeper.task_headers.items():  # noqa
+        for key, header in list(self.task_server.task_keeper.task_headers.items()):  # noqa
             headers[str(key)] = DictSerializer.dump(header)
         return headers
 
@@ -1119,7 +1119,7 @@ class Client(HardwarePresetsMixin):
         progress = self.task_server.task_computer.get_progresses()
         if len(progress) > 0:
             msg = "Computing {} subtask(s):".format(len(progress))
-            for k, v in progress.items():
+            for k, v in list(progress.items()):
                 msg = "{} \n {} ({}%)\n".format(msg, k, v.get_progress() * 100)
         elif self.config_desc.accept_tasks:
             msg = "Waiting for tasks...\n"

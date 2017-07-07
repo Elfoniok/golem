@@ -182,15 +182,15 @@ class DockerManager(DockerConfigManager):
 
         if diff:
 
-            for constraint, value in diff.items():
+            for constraint, value in list(diff.items()):
                 min_val = self.min_constraints.get(constraint)
                 diff[constraint] = max(min_val, value)
 
-            for constraint, value in constraints.items():
+            for constraint, value in list(constraints.items()):
                 if constraint not in diff:
                     diff[constraint] = value
 
-            for constraint, value in self.min_constraints.items():
+            for constraint, value in list(self.min_constraints.items()):
                 if constraint not in diff:
                     diff[constraint] = value
 
@@ -564,7 +564,7 @@ class VirtualBoxHypervisor(Hypervisor):
         if not vm:
             return
 
-        for name, value in params.items():
+        for name, value in list(params.items()):
             try:
                 setattr(vm, name, value)
             except Exception as e:

@@ -127,7 +127,7 @@ class MockRPCSession(object):
         self.method_map = method_map
         self.reverse_map = dict()
 
-        for k, v in method_map.items():
+        for k, v in list(method_map.items()):
             self.reverse_map[v] = k
 
     def call(self, alias, *args, **kwargs):

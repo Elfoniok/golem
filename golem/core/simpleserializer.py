@@ -50,7 +50,7 @@ class DictCoder(object):
 
         obj = sub_cls.__new__(sub_cls)
 
-        for k, v in dictionary.items():
+        for k, v in list(dictionary.items()):
             if cls._is_class(v):
                 setattr(obj, k, cls.obj_from_dict(v))
             else:
@@ -60,7 +60,7 @@ class DictCoder(object):
     @classmethod
     def _to_dict_traverse_dict(cls, dictionary, typed=True):
         result = dict()
-        for k, v in dictionary.items():
+        for k, v in list(dictionary.items()):
             if (isinstance(k, str) and k.startswith('_')) or isinstance(v, collections.Callable):
                 continue
             result[str(k)] = cls._to_dict_traverse_obj(v, typed)
@@ -84,7 +84,7 @@ class DictCoder(object):
     @classmethod
     def _from_dict_traverse_dict(cls, dictionary):
         result = dict()
-        for k, v in dictionary.items():
+        for k, v in list(dictionary.items()):
             result[k] = cls._from_dict_traverse_obj(v)
         return result
 

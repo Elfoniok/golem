@@ -3,7 +3,7 @@
 import logging
 from os import path
 
-from ethereum.utils import denoms
+from .ethereum.utils import denoms
 
 from golem.clientconfigdescriptor import ClientConfigDescriptor
 from golem.core.simpleconfig import SimpleConfig, ConfigEntry
@@ -66,7 +66,7 @@ class CommonConfig:
     def __init__(self, section="Common", **kwargs):
         self._section = section
 
-        for k, v in kwargs.items():
+        for k, v in list(kwargs.items()):
             ConfigEntry.create_property(
                 section,
                 k.replace("_", " "),
@@ -104,7 +104,7 @@ class NodeConfig:
             estimated_performance = ESTIMATED_DEFAULT
         kwargs["estimated_performance"] = estimated_performance
 
-        for k, v in kwargs.items():
+        for k, v in list(kwargs.items()):
             ConfigEntry.create_property(
                 self.section(),
                 k.replace("_", " "),
@@ -199,7 +199,7 @@ class AppConfig:
                 .format(type(cfg_desc))
             )
 
-        for var, val in vars(cfg_desc).items():
+        for var, val in list(vars(cfg_desc).items()):
             setter = "set_{}".format(var)
             if not hasattr(self, setter):
                 logger.info("Cannot set unknown config property: {} = {}"

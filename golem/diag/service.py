@@ -71,7 +71,7 @@ class DiagnosticsService(object):
             self._looping_call.stop()
 
     def log_diagnostics(self):
-        for v in self._providers.values():
+        for v in list(self._providers.values()):
             method = v['method']
             data = v['provider'].get_diagnostics(v["output_format"])
 

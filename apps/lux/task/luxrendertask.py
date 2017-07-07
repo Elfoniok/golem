@@ -371,7 +371,7 @@ class LuxTask(renderingtask.RenderingTask):
     @renderingtask.RenderingTask.handle_key_error
     def _remove_from_preview(self, subtask_id):
         preview_files = []
-        for sub_id, task in self.subtasks_given.items():
+        for sub_id, task in list(self.subtasks_given.items()):
             if sub_id != subtask_id\
                     and task['status'] == 'Finished'\
                     and 'preview_file' in task:

@@ -248,8 +248,8 @@ def get_version():
             semantic_version.Version(tag.name)
             versions.append(tag.name)
         except Exception as exc:
-            print("Tag {} is not a valid release version: {}".format(
-                tag, exc))
+            print(("Tag {} is not a valid release version: {}".format(
+                tag, exc)))
 
     if not versions:
         raise EnvironmentError("No git version tag found "

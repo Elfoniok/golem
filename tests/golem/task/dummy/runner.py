@@ -34,7 +34,7 @@ node_kind = ""
 
 
 def report(msg):
-    print(format_msg(node_kind, os.getpid(), msg))
+    print((format_msg(node_kind, os.getpid(), msg)))
 
 
 def override_ip_info(*_, **__):
@@ -265,7 +265,7 @@ def dispatch(args):
         error_msg = run_simulation(num_computing_nodes=2, num_subtasks=4,
                                    timeout=120)
         if error_msg:
-            print("Dummy task computation failed:", error_msg)
+            print(("Dummy task computation failed:", error_msg))
             sys.exit(1)
 
 

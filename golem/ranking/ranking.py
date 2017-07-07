@@ -268,7 +268,7 @@ class Ranking(object):
 
     @staticmethod
     def __sum_gossip(a, b):
-        return list(map(sum, zip(a, b)))
+        return list(map(sum, list(zip(a, b))))
 
     def __send_finished(self):
         self.client.send_stop_gossip()

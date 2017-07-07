@@ -93,7 +93,7 @@ class ResourceServer(PendingConnectionsServer):
         if self.keys_auth.get_key_id() in resource_peers:
             del resource_peers[self.keys_auth.get_key_id()]
 
-        for key_id, [addr, port, node_name, node_info] in resource_peers.items():
+        for key_id, [addr, port, node_name, node_info] in list(resource_peers.items()):
             self.add_resource_peer(node_name, addr, port, key_id, node_info)
 
     def sync_network(self):
@@ -277,7 +277,7 @@ class ResourceServer(PendingConnectionsServer):
         })
 
     def __free_peer(self, addr, port):
-        for key_id, peer in self.resource_peers.items():
+        for key_id, peer in list(self.resource_peers.items()):
             if peer['addr'] == addr and peer['port'] == port:
                 self.resource_peers[key_id]['state'] = 'free'
                 return key_id
@@ -323,7 +323,7 @@ class ResourceServer(PendingConnectionsServer):
 
     def __remove_client(self, addr, port):
         bad_client = None
-        for key_id, peer in self.resource_peers.items():
+        for key_id, peer in list(self.resource_peers.items()):
             if peer['addr'] == addr and peer['port'] == port:
                 bad_client = key_id
                 break

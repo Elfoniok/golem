@@ -61,7 +61,7 @@ def update_dict(target, *updates):
     :return: updated target dictionary
     """
     for update in updates:
-        for key, val in update.items():
+        for key, val in list(update.items()):
             if isinstance(val, collections.Mapping):
                 target[key] = update_dict(target.get(key, {}), val)
             else:
