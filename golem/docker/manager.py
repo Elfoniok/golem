@@ -6,7 +6,8 @@ import time
 from contextlib import contextmanager
 from threading import Thread
 
-from golem.core.common import is_linux, is_windows, is_osx, get_golem_path
+from golem.core.common import is_linux, is_windows, is_osx, get_golem_path, \
+    DEVNULL
 from golem.core.threads import ThreadQueueExecutor
 from golem.docker.config_manager import DockerConfigManager
 
@@ -103,7 +104,7 @@ class DockerManager(DockerConfigManager):
 
         try:
             if is_linux():
-                raise EnvironmentError("native Linux environment")
+                raise EnvironmentError("Linux")
 
             # Check if a supported VM hypervisor is present
             self.hypervisor = self._get_hypervisor()
@@ -113,8 +114,10 @@ class DockerManager(DockerConfigManager):
         except Exception as exc:
 
             self.docker_machine = None
-            logger.warn("Docker machine is not available: {}"
-                        .format(exc))
+
+            if not is_linux():
+                logger.warn("Docker machine is not available: {}"
+                            .format(exc))
 
         else:
 
@@ -179,15 +182,15 @@ class DockerManager(DockerConfigManager):
 
         if diff:
 
-            for constraint, value in diff.iteritems():
+            for constraint, value in diff.items():
                 min_val = self.min_constraints.get(constraint)
                 diff[constraint] = max(min_val, value)
 
-            for constraint, value in constraints.iteritems():
+            for constraint, value in constraints.items():
                 if constraint not in diff:
                     diff[constraint] = value
 
-            for constraint, value in self.min_constraints.iteritems():
+            for constraint, value in self.min_constraints.items():
                 if constraint not in diff:
                     diff[constraint] = value
 
@@ -270,7 +273,9 @@ class DockerManager(DockerConfigManager):
         return False
 
     @classmethod
-    def command(cls, key, machine_name=None, args=None, check_output=True, shell=False):
+    def command(cls, key, machine_name=None, args=None,
+                check_output=True, shell=False):
+
         command = cls.docker_machine_commands.get(key)
         if not command:
             command = cls.docker_commands.get(key)
@@ -285,8 +290,13 @@ class DockerManager(DockerConfigManager):
         logger.debug('docker_machine_command: %s', command)
 
         if check_output:
-            return subprocess.check_output(command, shell=shell)
-        return subprocess.check_call(command)
+            return subprocess.check_output(command, shell=shell,
+                                           stderr=subprocess.PIPE,
+                                           stdin=DEVNULL)
+        return subprocess.check_call(command, shell=shell,
+                                     stdout=DEVNULL,
+                                     stderr=DEVNULL,
+                                     stdin=DEVNULL)
 
     @property
     def config_dir(self):
@@ -294,7 +304,7 @@ class DockerManager(DockerConfigManager):
 
     @classmethod
     def build_images(cls):
-        cwd = os.getcwdu()
+        cwd = os.getcwd()
 
         for entry in cls._collect_images():
             image, docker_file, tag = entry
@@ -339,7 +349,7 @@ class DockerManager(DockerConfigManager):
     def _diff_constraints(old_values, new_values):
         result = dict()
 
-        for key in CONSTRAINT_KEYS.values():
+        for key in list(CONSTRAINT_KEYS.values()):
             old_value = old_values.get(key)
             new_value = new_values.get(key)
 
@@ -542,7 +552,7 @@ class VirtualBoxHypervisor(Hypervisor):
         result = {}
         try:
             vm = self._machine_from_arg(name)
-            for constraint_key in CONSTRAINT_KEYS.values():
+            for constraint_key in list(CONSTRAINT_KEYS.values()):
                 result[constraint_key] = getattr(vm, constraint_key)
         except Exception as e:
             logger.error("VirtualBox: error reading VM's constraints: {}"
@@ -554,7 +564,7 @@ class VirtualBoxHypervisor(Hypervisor):
         if not vm:
             return
 
-        for name, value in params.iteritems():
+        for name, value in params.items():
             try:
                 setattr(vm, name, value)
             except Exception as e:
@@ -634,7 +644,7 @@ class VirtualBoxHypervisor(Hypervisor):
         return session_obj
 
     def _machine_from_arg(self, machine_obj):
-        if isinstance(machine_obj, basestring):
+        if isinstance(machine_obj, str):
             try:
                 return self.virtualbox.find_machine(machine_obj)
             except Exception as e:

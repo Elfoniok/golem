@@ -1,4 +1,4 @@
-from __future__ import division
+
 
 import logging
 import os
@@ -31,8 +31,7 @@ from gui.view.dialog import TestingTaskProgressDialog, UpdatingConfigDialog
 logger = logging.getLogger("app")
 
 
-task_to_remove_status = [TaskStatus.aborted, TaskStatus.timeout,
-                         TaskStatus.finished, TaskStatus.paused]
+task_to_remove_status = [TaskStatus.aborted, TaskStatus.paused]
 
 
 class GuiApplicationLogic(QtCore.QObject, AppLogic):
@@ -153,10 +152,10 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
         new_row_count = len(peers)
 
         if new_row_count < row_count:
-            for i in xrange(row_count, new_row_count, -1):
+            for i in range(row_count, new_row_count, -1):
                 table.removeRow(i - 1)
         elif new_row_count > row_count:
-            for i in xrange(row_count, new_row_count):
+            for i in range(row_count, new_row_count):
                 table.insertRow(i)
 
         for i, peer in enumerate(peers):
@@ -213,12 +212,19 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     @inlineCallbacks
     def update_stats(self):
         response = yield self.client.get_task_stats()
+        if not response:
+            return
 
-        self.customizer.gui.ui.knownTasks.setText(str(response['in_network']))
-        self.customizer.gui.ui.supportedTasks.setText(str(response['supported']))
-        self.customizer.gui.ui.computedTasks.setText(str(response['subtasks_computed']))
-        self.customizer.gui.ui.tasksWithErrors.setText(str(response['subtasks_with_errors']))
-        self.customizer.gui.ui.tasksWithTimeouts.setText(str(response['subtasks_with_timeout']))
+        self.customizer.gui.ui.knownTasks.setText(
+            str(response['in_network']))
+        self.customizer.gui.ui.supportedTasks.setText(
+            str(response['supported']))
+        self.customizer.gui.ui.computedTasks.setText(
+            str(response['subtasks_computed']))
+        self.customizer.gui.ui.tasksWithErrors.setText(
+            str(response['subtasks_with_errors']))
+        self.customizer.gui.ui.tasksWithTimeouts.setText(
+            str(response['subtasks_with_timeout']))
 
     @inlineCallbacks
     def get_config(self):
@@ -244,14 +250,15 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     def change_node_name(self, node_name):
         yield self.client.update_setting('node_name', node_name)
         self.node_name = node_name
-        self.customizer.set_name(u"{}".format(self.node_name))
+        self.customizer.set_name("{}".format(self.node_name))
 
     @inlineCallbacks
     def change_config(self, cfg_desc, run_benchmarks=False):
-        cfg_dict = DictSerializer.dump(cfg_desc)
-        yield self.client.update_settings(cfg_dict, run_benchmarks=run_benchmarks)
+        cfg_dict = DictSerializer.dump(cfg_desc, typed=False)
+        yield self.client.update_settings(cfg_dict,
+                                          run_benchmarks=run_benchmarks)
         self.node_name = yield self.client.get_setting('node_name')
-        self.customizer.set_name(u"{}".format(self.node_name))
+        self.customizer.set_name("{}".format(self.node_name))
 
     def start_task(self, task_id):
         ts = self.get_task(task_id)
@@ -368,7 +375,7 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
 
     @staticmethod
     def save_task(task_state, file_path):
-        path = u"{}".format(file_path)
+        path = "{}".format(file_path)
         if not path.endswith(".gt"):
             if not path.endswith("."):
                 file_path += "."
@@ -410,7 +417,7 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     def config_changed(self):
         self.customizer.configuration_dialog_customizer.load_data()
 
-    def run_test_task(self, task_state):
+    def run_test_task(self, task_def):
         def on_abort():
             self.progress_dialog_customizer.show_message("Aborting test...")
             self.abort_test_task()
@@ -433,34 +440,32 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
         self.progress_dialog.show()
 
         try:
-            self.client.run_test_task(self.prepare_dict_for_test(task_state))
+            self.client.run_test_task(self.prepare_dict_for_test(task_def))
             return True
         except Exception as ex:
             self.test_task_computation_error(ex)
 
         return False
 
-    def prepare_dict_for_test(self, task_state):
+    def prepare_dict_for_test(self, task_def):
         return {
-            u'type': task_state.definition.task_type,
-            u'resources': list(task_state.definition.resources)
+            'type': task_def.task_type,
+            'subtasks': 1,
+            'resources': list(task_def.resources)
         }
 
     def build_and_serialize_task(self, task_state, cbk=None):
-        tb = self.get_builder(task_state)
-        t = Task.build_task(tb)
-        t.header.max_price = str(t.header.max_price)
-        t_serialized = DictSerializer.dump(t)
-        if 'task_definition' in t_serialized:
-            t_serialized_def = t_serialized['task_definition']
-            t_serialized_def['resources'] = list(t_serialized_def['resources'])
-            if 'max_price' in t_serialized_def:
-                t_serialized_def['max_price'] = str(t_serialized_def['max_price'])
-        from pprint import pformat
-        logger.debug('task serialized: %s', pformat(t_serialized))
+        task_builder = self.get_builder(task_state)
+        task = Task.build_task(task_builder)
+        task.header.max_price = str(task.header.max_price)
+
+        definition = task_state.definition
+        definition.legacy = True
+        serialized = task_builder.build_dictionary(definition)
+
         if cbk:
-            cbk(t)
-        return t_serialized
+            cbk(task)
+        return serialized
 
     def test_task_started(self, success):
         self.progress_dialog_customizer.show_message("Testing...")
@@ -509,7 +514,7 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     @inlineCallbacks
     def _benchmark_computation_success(self, performance, label, cfg_param):
         self.progress_dialog.stop_progress_bar()
-        self.progress_dialog_customizer.show_message(u"Recounted")
+        self.progress_dialog_customizer.show_message("Recounted")
         self.progress_dialog_customizer.enable_ok_button(True)  # enable 'ok' button
         self.customizer.gui.setEnabled('recount', True)         # enable all 'recount' buttons
 
@@ -520,7 +525,7 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
 
     def _benchmark_computation_error(self, error):
         self.progress_dialog.stop_progress_bar()
-        self.progress_dialog_customizer.show_message(u"Recounting failed: {}".format(error))
+        self.progress_dialog_customizer.show_message("Recounting failed: {}".format(error))
         self.progress_dialog_customizer.enable_ok_button(True)  # enable 'ok' button
         self.customizer.gui.setEnabled('recount', True)         # enable all 'recount' buttons
 
@@ -553,13 +558,13 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
         self.progress_dialog_customizer.enable_abort_button(False)
 
         logger.debug("After test: {}".format(after_test_data))
-        if after_test_data.get(u"warnings") is not None:
+        if after_test_data.get("warnings") is not None:
             self.progress_dialog.close()
-            self.customizer.show_warning_window(u"{}".format(
-                after_test_data[u"warnings"]
+            self.customizer.show_warning_window("{}".format(
+                after_test_data["warnings"]
             ))
         else:
-            msg = u"Task tested successfully - time %.2f" % time_spent
+            msg = "Task tested successfully - time %.2f" % time_spent
             self.progress_dialog_customizer.show_message(msg)
 
         # enable everything on 'new task' tab
@@ -570,7 +575,7 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
 
     def test_task_computation_error(self, error):
         self.progress_dialog.stop_progress_bar()
-        err_msg = u"Task test computation failure. "
+        err_msg = "Task test computation failure. "
         if error:
             err_msg += self.__parse_error_message(error)
         self.progress_dialog_customizer.show_message(err_msg)
@@ -584,9 +589,9 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     @staticmethod
     def __parse_error_message(error_msg):
         if any(code in error_msg for code in ['246', '247', '500']):
-            return u"[{}] There is a chance that you RAM limit is too low. Consider increasing max memory usage".format(
+            return "[{}] There is a chance that you RAM limit is too low. Consider increasing max memory usage".format(
                 error_msg)
-        return u"{}".format(error_msg)
+        return "{}".format(error_msg)
 
     @inlineCallbacks
     def task_status_changed(self, task_id):
@@ -641,13 +646,18 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     def get_task_presets(self, task_type):
         presets = yield self.client.get_task_presets(task_type)
         unpacked_presets = {}
-        for preset_name, preset_value in presets.items():
+        for preset_name, preset_value in list(presets.items()):
             try:
                 unpacked_presets[preset_name] = jsonpickle.loads(preset_value)
             except Exception:
                 logger.exception("Cannot unpickle preset")
                 self.client.delete_task_preset(task_type, preset_name)
         returnValue(unpacked_presets)
+
+    @inlineCallbacks
+    def get_estimated_cost(self, task_type, options):
+        cost = yield self.client.get_estimated_cost(task_type, options)
+        returnValue(cost)
 
     def delete_task_preset(self, task_type, preset_name):
         self.client.delete_task_preset(task_type, preset_name)
@@ -661,22 +671,22 @@ class GuiApplicationLogic(QtCore.QObject, AppLogic):
     def _validate_task_state(self, task_state):
         td = task_state.definition
         if td.task_type not in self.task_types:
-            self.customizer.show_error_window(u"{}".format("Task {} is not registered".format(td.task_type)))
+            self.customizer.show_error_window("{}".format("Task {} is not registered".format(td.task_type)))
             return False
         is_valid, err = td.is_valid()
         if is_valid and err:
-            self.customizer.show_warning_window(u"{}".format(err))
+            self.customizer.show_warning_window("{}".format(err))
         if not is_valid:
-            self.customizer.show_error_window(u"{}".format(err))
+            self.customizer.show_error_window("{}".format(err))
         return is_valid
 
     @staticmethod
     def _format_stats_message(stat):
         try:
-            return u"Session: {}; All time: {}".format(stat[0], stat[1])
+            return "Session: {}; All time: {}".format(stat[0], stat[1])
         except (IndexError, TypeError) as err:
             logger.warning("Problem with stat formatin {}".format(err))
-            return u"Error"
+            return "Error"
 
     def __get_reactor(self):
         if not self.reactor:

@@ -6,8 +6,8 @@ from stun import FullCone, OpenInternet
 from collections import deque
 
 from golem.core.hostaddress import ip_address_private, ip_network_contains, ipv4_networks
-from server import Server
-from tcpnetwork import TCPListeningInfo, TCPListenInfo, SocketAddress, TCPConnectInfo
+from .server import Server
+from .tcpnetwork import TCPListeningInfo, TCPListenInfo, SocketAddress, TCPConnectInfo
 from golem.core.variables import LISTEN_WAIT_TIME, LISTENING_REFRESH_TIME, LISTEN_PORT_TTL
 
 logger = logging.getLogger('golem.network.transport.tcpserver')
@@ -23,6 +23,7 @@ class TCPServer(Server):
         :param TCPNetwork network: network that server will use
         """
         Server.__init__(self, config_desc, network)
+        self.active = True
         self.cur_port = 0  # current listening port
         self.use_ipv6 = config_desc.use_ipv6 if config_desc else False
         self.ipv4_networks = ipv4_networks()
@@ -54,9 +55,21 @@ class TCPServer(Server):
             if listening_failure:
                 listening_failure()
 
-        listen_info = TCPListenInfo(self.config_desc.start_port, self.config_desc.end_port,
+        listen_info = TCPListenInfo(self.config_desc.start_port,
+                                    self.config_desc.end_port,
                                     established, failure)
         self.network.listen(listen_info)
+
+    def stop_accepting(self):
+        if self.network and self.cur_port:
+            self.network.stop_listening(TCPListeningInfo(self.cur_port))
+            self.cur_port = None
+
+    def pause(self):
+        self.active = False
+
+    def resume(self):
+        self.active = True
 
     def _stopped_callback(self):
         logger.debug("Stopped listening on previous port")
@@ -133,6 +146,9 @@ class PendingConnectionsServer(TCPServer):
             logger.debug("Connection {} is unknown".format(conn_id))
 
     def _add_pending_request(self, req_type, task_owner, port, key_id, args):
+        if not self.active:
+            return
+
         logger.debug('_add_pending_request(%r, %r, %r, %r, %r)', req_type, task_owner, port, key_id, args)
         # FIXME key_id is ignored
         sockets = [sock for sock in
@@ -185,7 +201,7 @@ class PendingConnectionsServer(TCPServer):
             # self._listenOnPort(pl.port, pl.established, pl.failure, pl.args)
             self.open_listenings[pl.id] = pl  # TODO They should die after some time
 
-        conns = [pen for pen in self.pending_connections.itervalues() if
+        conns = [pen for pen in self.pending_connections.values() if
                  pen.status in PendingConnection.connect_statuses]
 
         for conn in conns:
@@ -204,7 +220,7 @@ class PendingConnectionsServer(TCPServer):
         if cnt_time - self.last_check_listening_time > self.listening_refresh_time:
             self.last_check_listening_time = time.time()
             listenings_to_remove = []
-            for ol_id, listening in self.open_listenings.iteritems():
+            for ol_id, listening in self.open_listenings.items():
                 if cnt_time - listening.time > self.listen_port_ttl:
                     self.network.stop_listening(TCPListeningInfo(listening.port))
                     listenings_to_remove.append(ol_id)

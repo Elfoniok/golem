@@ -25,7 +25,7 @@ class EthereumTransactionSystem(TransactionSystem):
 
         # FIXME: Passing private key all around might be a security issue.
         #        Proper account managment is needed.
-        if not isinstance(node_priv_key, basestring)\
+        if not isinstance(node_priv_key, str)\
                 or len(node_priv_key) != 32:
             raise ValueError("Invalid private key: {}".format(node_priv_key))
         self.__node_address = keys.privtoaddr(node_priv_key)
@@ -65,13 +65,6 @@ class EthereumTransactionSystem(TransactionSystem):
         av_gnt = self.__proc._gnt_available()
         eth = self.__proc.eth_balance()
         return gnt, av_gnt, eth
-
-    def get_incoming_payments(self):
-        return [{'status': payment.status.value,
-                 'payer': payment.payer,
-                 'value': payment.value,
-                 'block_number': payment.extra['block_number']
-                 } for payment in self.__monitor.get_incoming_payments()]
 
     def sync(self):
         syncing = True

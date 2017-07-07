@@ -159,6 +159,7 @@ class Argument(object):
         kwargs = dict(self.kwargs)
 
         is_flag = args and args[0].startswith('-')
+        vargs = kwargs.pop('vargs', False)
         boolean = kwargs.pop('boolean', is_flag)
         optional = kwargs.pop('optional', is_flag)
         default = kwargs.get('default', False if boolean else None)
@@ -174,7 +175,9 @@ class Argument(object):
             else:
                 kwargs['action'] = 'store'
 
-        if not boolean and 'default' in kwargs:
+        if vargs:
+            kwargs['nargs'] = '+'
+        elif not boolean and 'default' in kwargs:
             kwargs['nargs'] = '?'
 
         ret = Argument(*args, **kwargs)
@@ -256,7 +259,7 @@ class CommandHelper(object):
             cls.update_children(interface, children)
             cls.update_arguments(interface, arguments)
 
-            for key, value in kwargs.items():
+            for key, value in list(kwargs.items()):
                 cls.update_property(interface, key, value)
 
         else:
@@ -422,9 +425,9 @@ class CommandHelper(object):
 
     @classmethod
     def debug(cls, elem, level=0):
-        print("{}{} : {}".format("  " * level if level else "",
-                                 cls.get_name(elem), elem))
-        for c in cls.get_children(elem).values():
+        print(("{}{} : {}".format("  " * level if level else "",
+                                 cls.get_name(elem), elem)))
+        for c in list(cls.get_children(elem).values()):
             cls.debug(c, level + 1)
 
 

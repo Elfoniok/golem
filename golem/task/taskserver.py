@@ -15,17 +15,16 @@ from golem.ranking.helper.trust import Trust
 from golem.task.deny import get_deny_set
 from golem.task.taskbase import TaskHeader
 from golem.task.taskconnectionshelper import TaskConnectionsHelper
-from taskcomputer import TaskComputer
-from taskkeeper import TaskHeaderKeeper
-from taskmanager import TaskManager
-from tasksession import TaskSession
+from .taskcomputer import TaskComputer
+from .taskkeeper import TaskHeaderKeeper
+from .taskmanager import TaskManager
+from .tasksession import TaskSession
 import weakref
-from weakreflist.weakreflist import WeakList
 
 logger = logging.getLogger('golem.task.taskserver')
 
 
-tmp_cycler = itertools.cycle(range(550))
+tmp_cycler = itertools.cycle(list(range(550)))
 
 
 class TaskServer(PendingConnectionsServer):
@@ -46,7 +45,7 @@ class TaskServer(PendingConnectionsServer):
         self.task_connections_helper = TaskConnectionsHelper()
         self.task_connections_helper.task_server = self
         self.task_sessions = {}
-        self.task_sessions_incoming = WeakList()
+        self.task_sessions_incoming = weakref.WeakSet()
 
         self.max_trust = 1.0
         self.min_trust = 0.0
@@ -100,7 +99,7 @@ class TaskServer(PendingConnectionsServer):
         self.__remove_old_tasks()
         self.__remove_old_sessions()
         self._remove_old_listenings()
-        if tmp_cycler.next() == 0:
+        if next(tmp_cycler) == 0:
             logger.debug('TASK SERVER TASKS DUMP: %r', self.task_manager.tasks)
             logger.debug('TASK SERVER TASKS STATES: %r', self.task_manager.tasks_states)
 
@@ -190,10 +189,27 @@ class TaskServer(PendingConnectionsServer):
                                                                    owner_address, owner_port, owner_key_id, owner)
 
     def new_connection(self, session):
-        self.task_sessions_incoming.append(session)
+        if self.active:
+            self.task_sessions_incoming.add(session)
+        else:
+            session.disconnect(TaskSession.DCRNoMoreMessages)
+
+    def disconnect(self):
+        task_sessions = dict(self.task_sessions)
+        sessions_incoming = weakref.WeakSet(self.task_sessions_incoming)
+
+        for task_session in task_sessions.values():
+            task_session.dropped()
+
+        for task_session in sessions_incoming:
+            try:
+                task_session.dropped()
+            except Exception as exc:
+                logger.error("Error closing incoming session: %s", exc)
 
     def get_tasks_headers(self):
-        ths = self.task_keeper.get_all_tasks() + self.task_manager.get_tasks_headers()
+        ths = self.task_keeper.get_all_tasks() + \
+              self.task_manager.get_tasks_headers()
         return [th.to_dict() for th in ths]
 
     def add_task_header(self, th_dict_repr):
@@ -203,7 +219,7 @@ class TaskServer(PendingConnectionsServer):
 
             task_id = th_dict_repr["task_id"]
             key_id = th_dict_repr["task_owner_key_id"]
-            task_ids = self.task_manager.tasks.keys()
+            task_ids = list(self.task_manager.tasks.keys())
             new_sig = True
 
             if task_id in self.task_keeper.task_headers:
@@ -234,7 +250,7 @@ class TaskServer(PendingConnectionsServer):
         self.remove_pending_conn(task_session.conn_id)
         self.remove_responses(task_session.conn_id)
 
-        for tsk in self.task_sessions.keys():
+        for tsk in list(self.task_sessions.keys()):
             if self.task_sessions[tsk] == task_session:
                 del self.task_sessions[tsk]
 
@@ -374,19 +390,19 @@ class TaskServer(PendingConnectionsServer):
         task_id = self.task_manager.get_task_id(subtask_id)
         value = self.task_manager.get_value(subtask_id)
         if not value:
-            logger.info(u"Invaluable subtask: %r value: %r", subtask_id, value)
+            logger.info("Invaluable subtask: %r value: %r", subtask_id, value)
             return
 
         if not self.client.transaction_system:
-            logger.info(u"Transaction system not ready. Ignoring payment for subtask: %r", subtask_id)
+            logger.info("Transaction system not ready. Ignoring payment for subtask: %r", subtask_id)
             return
 
         if not account_info.eth_account.address:
-            logger.warning(u"Unknown payment address of %r (%r). Subtask: %r", account_info.node_name, account_info.addr, subtask_id)
+            logger.warning("Unknown payment address of %r (%r). Subtask: %r", account_info.node_name, account_info.addr, subtask_id)
             return
 
         payment = self.client.transaction_system.add_payment_info(task_id, subtask_id, value, account_info)
-        logger.debug(u'Result accepted for subtask: %s Created payment: %r', subtask_id, payment)
+        logger.debug('Result accepted for subtask: %s Created payment: %r', subtask_id, payment)
 
     def increase_trust_payment(self, task_id):
         node_id = self.task_manager.comp_task_keeper.get_node_for_task_id(task_id)
@@ -513,7 +529,7 @@ class TaskServer(PendingConnectionsServer):
 
     def _sync_forwarded_session_requests(self):
         now = time.time()
-        for key_id, data in self.forwarded_session_requests.items():
+        for key_id, data in list(self.forwarded_session_requests.items()):
             if data:
                 if now - data['time'] >= self.forwarded_session_request_timeout:
                     logger.debug('connection timeout: %s', data)
@@ -816,7 +832,7 @@ class TaskServer(PendingConnectionsServer):
         self.remove_pending_conn(conn_id)
         self.remove_responses(conn_id)
 
-    def __connection_for_task_result_final_failure(self, conn_id, key_id,
+    def __connection_for_task_result_final_failure(self, conn_id,
                                                    waiting_task_result):
         logger.info("Cannot connect to task {} owner".format(
             waiting_task_result.subtask_id))
@@ -859,7 +875,7 @@ class TaskServer(PendingConnectionsServer):
             key_id=obj.get_sender_node().key,
             conn_id=conn_id
         )
-
+        self._mark_connected(conn_id, session.address, session.port)
         session.send_hello()
         session.inform_worker_about_payment(obj)
 
@@ -873,7 +889,7 @@ class TaskServer(PendingConnectionsServer):
             key_id=obj.get_sender_node().key,
             conn_id=conn_id
         )
-
+        self._mark_connected(conn_id, session.address, session.port)
         session.send_hello()
         session.request_payment(obj)
 
@@ -892,7 +908,7 @@ class TaskServer(PendingConnectionsServer):
     def __remove_old_sessions(self):
         cur_time = time.time()
         sessions_to_remove = []
-        for subtask_id, session in self.task_sessions.iteritems():
+        for subtask_id, session in self.task_sessions.items():
             if cur_time - session.last_message_time > self.last_message_time_threshold:
                 sessions_to_remove.append(subtask_id)
         for subtask_id in sessions_to_remove:
@@ -967,7 +983,7 @@ class TaskServer(PendingConnectionsServer):
         )
 
     def __send_waiting_results(self):
-        for subtask_id in self.results_to_send.keys():
+        for subtask_id in list(self.results_to_send.keys()):
             wtr = self.results_to_send[subtask_id]
             now = time.time()
 
@@ -984,7 +1000,7 @@ class TaskServer(PendingConnectionsServer):
                                                   wtr.owner, wtr.owner_port,
                                                   wtr.owner_key_id, args)
 
-        for subtask_id in self.failures_to_send.keys():
+        for subtask_id in list(self.failures_to_send.keys()):
             wtf = self.failures_to_send[subtask_id]
 
             session = self.task_sessions.get(subtask_id, None)
@@ -999,6 +1015,18 @@ class TaskServer(PendingConnectionsServer):
                                           wtf.owner_key_id, args)
 
         self.failures_to_send.clear()
+
+    def __connection_for_payment_failure(self, *args, **kwargs):
+        if 'conn_id' in kwargs:
+            self.final_conn_failure(kwargs['conn_id'])
+        else:
+            logger.warning("There is no connection id for handle failure")
+
+    def __connection_for_payment_request_failure(self, *args, **kwargs):
+        if 'conn_id' in kwargs:
+            self.final_conn_failure(kwargs['conn_id'])
+        else:
+            logger.warning("There is no connection id for handle failure")
 
     # CONFIGURATION METHODS
     #############################
@@ -1026,8 +1054,10 @@ class TaskServer(PendingConnectionsServer):
             TASK_CONN_TYPES['start_session']: self.__connection_for_start_session_failure,
             TASK_CONN_TYPES['middleman']: self.__connection_for_middleman_failure,
             TASK_CONN_TYPES['nat_punch']: self.__connection_for_nat_punch_failure,
-            TASK_CONN_TYPES['payment']: self.noop,
-            TASK_CONN_TYPES['payment_request']: self.noop,
+            TASK_CONN_TYPES['payment']:
+                self.__connection_for_payment_failure,
+            TASK_CONN_TYPES['payment_request']:
+                self.__connection_for_payment_request_failure,
         })
 
     def _set_conn_final_failure(self):
@@ -1038,7 +1068,7 @@ class TaskServer(PendingConnectionsServer):
             TASK_CONN_TYPES['start_session']: self.__connection_for_start_session_final_failure,
             TASK_CONN_TYPES['middleman']: self.noop,
             TASK_CONN_TYPES['nat_punch']: self.noop,
-            TASK_CONN_TYPES['payment']: self.noop,
+            TASK_CONN_TYPES['payment']:self.noop,
             TASK_CONN_TYPES['payment_request']: self.noop,
         })
 

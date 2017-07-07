@@ -1,5 +1,6 @@
-from __future__ import division
+
 import logging
+import math
 import os
 import random
 import shutil
@@ -22,6 +23,7 @@ from apps.lux.resources.scenefilereader import make_scene_analysis
 from apps.lux.task.verificator import LuxRenderVerificator
 from apps.rendering.resources.imgrepr import load_img, blend
 from apps.rendering.task import renderingtask
+from apps.rendering.task.renderingtask import PREVIEW_EXT, PREVIEW_Y, PREVIEW_X
 from apps.rendering.task import renderingtaskstate
 
 logger = logging.getLogger("apps.lux")
@@ -29,13 +31,12 @@ logger = logging.getLogger("apps.lux")
 MERGE_TIMEOUT = 7200
 
 APP_DIR = os.path.join(get_golem_path(), 'apps', 'lux')
-PREVIEW_EXT = "BMP"
 
 
 class LuxRenderDefaults(renderingtaskstate.RendererDefaults):
     def __init__(self):
         super(LuxRenderDefaults, self).__init__()
-        self.output_format = "exr"
+        self.output_format = "EXR"
         self.main_program_file = LuxRenderEnvironment().main_program_file
         self.min_subtasks = 1
         self.max_subtasks = 100
@@ -53,7 +54,7 @@ class LuxRenderTaskTypeInfo(TaskTypeInfo):
             dialog,
             customizer
         )
-        self.output_formats = ["exr", "png", "tga"]
+        self.output_formats = ["EXR", "PNG", "TGA"]
         self.output_file_ext = ["lxs"]
 
     @classmethod
@@ -68,8 +69,8 @@ class LuxRenderTaskTypeInfo(TaskTypeInfo):
         :param int as_path: return pixels that form a border path
         :return list: list of pixels that belong to a subtask border
         """
-        preview_x = 300.0
-        preview_y = 200.0
+        preview_x = PREVIEW_X
+        preview_y = PREVIEW_Y
         res_x, res_y = definition.resolution
         if res_x == 0 or res_y == 0:
             return []
@@ -86,10 +87,10 @@ class LuxRenderTaskTypeInfo(TaskTypeInfo):
         if as_path:
             border = [(0, 0), (x - 1, 0), (x - 1, y - 1), (0, y - 1)]
         else:
-            border = [(0, i) for i in xrange(y)]
-            border += [(x - 1, i) for i in xrange(y)]
-            border += [(i, 0) for i in xrange(x)]
-            border += [(i, y - 1) for i in xrange(x)]
+            border = [(0, i) for i in range(y)]
+            border += [(x - 1, i) for i in range(y)]
+            border += [(i, 0) for i in range(x)]
+            border += [(i, y - 1) for i in range(x)]
 
         return border
 
@@ -119,7 +120,7 @@ class LuxRenderOptions(Options):
         super(LuxRenderOptions, self).__init__()
         self.environment = LuxRenderEnvironment()
         self.halttime = 0
-        self.haltspp = 1
+        self.haltspp = 10
 
 
 class LuxTask(renderingtask.RenderingTask):
@@ -138,7 +139,7 @@ class LuxTask(renderingtask.RenderingTask):
             self.root_path
         )
         self.halttime = halttime
-        self.haltspp = haltspp
+        self.haltspp = int(math.ceil(haltspp / self.total_tasks))
         self.verification_error = False
         self.merge_timeout = MERGE_TIMEOUT
 
@@ -263,12 +264,12 @@ class LuxTask(renderingtask.RenderingTask):
         return self._new_compute_task_def(hash, extra_data, None, 0)
 
     def after_test(self, results, tmp_dir):
-        FLM_NOT_FOUND_MSG = u"Flm file was not found, check scene."
+        FLM_NOT_FOUND_MSG = "Flm file was not found, check scene."
         return_data = dict()
         flm = find_file_with_ext(tmp_dir, [".flm"])
         if flm is None:
-            return_data[u'warnings'] = FLM_NOT_FOUND_MSG
-            logger.warning(return_data[u"warnings"])
+            return_data['warnings'] = FLM_NOT_FOUND_MSG
+            logger.warning(return_data["warnings"])
         make_scene_analysis(self.scene_file_src, return_data)
         return return_data
 
@@ -304,7 +305,7 @@ class LuxTask(renderingtask.RenderingTask):
 
     def query_extra_data_for_final_flm(self):
         files = [
-            os.path.basename(x) for x in self.collected_file_names.values()
+            os.path.basename(x) for x in list(self.collected_file_names.values())
         ]
         return self.__get_merge_ctd(files)
 
@@ -357,7 +358,7 @@ class LuxTask(renderingtask.RenderingTask):
                "outfilebasename: {outfilebasename}, "\
                "scene_file_src: {scene_file_src}".format(**extra_data)
 
-    def _update_preview(self, new_chunk_file_path, chunk_num):
+    def _update_preview(self, new_chunk_file_path, num_start):
         self.num_add += 1
         if has_ext(new_chunk_file_path, ".exr"):
             self._update_preview_from_exr(new_chunk_file_path)
@@ -370,7 +371,7 @@ class LuxTask(renderingtask.RenderingTask):
     @renderingtask.RenderingTask.handle_key_error
     def _remove_from_preview(self, subtask_id):
         preview_files = []
-        for sub_id, task in self.subtasks_given.iteritems():
+        for sub_id, task in self.subtasks_given.items():
             if sub_id != subtask_id\
                     and task['status'] == 'Finished'\
                     and 'preview_file' in task:
@@ -465,7 +466,7 @@ class LuxTask(renderingtask.RenderingTask):
             self.__final_flm_failure,
             self.query_extra_data_for_final_flm,
             use_task_resources=False,
-            additional_resources=self.collected_file_names.values()
+            additional_resources=list(self.collected_file_names.values())
         )
         computer.run()
         computer.tt.join()
@@ -509,3 +510,21 @@ class LuxRenderTaskBuilder(renderingtask.RenderingTaskBuilder):
         kwargs['halttime'] = self.task_definition.options.halttime
         kwargs['haltspp'] = self.task_definition.options.haltspp
         return kwargs
+
+    @classmethod
+    def build_dictionary(cls, definition):
+        parent = super(LuxRenderTaskBuilder, cls)
+
+        dictionary = parent.build_dictionary(definition)
+        dictionary['options']['haltspp'] = definition.options.haltspp
+        return dictionary
+
+    @classmethod
+    def build_full_definition(cls, task_type, dictionary):
+        parent = super(LuxRenderTaskBuilder, cls)
+        options = dictionary['options']
+
+        definition = parent.build_full_definition(task_type, dictionary)
+        definition.options.haltspp = options.get('haltspp',
+                                                 definition.options.haltspp)
+        return definition

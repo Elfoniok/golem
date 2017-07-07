@@ -1,5 +1,5 @@
 import subprocess
-from common import is_windows
+from .common import is_windows, DEVNULL
 
 
 def exec_cmd(cmd, nice=20, wait=True):
@@ -11,7 +11,10 @@ def exec_cmd(cmd, nice=20, wait=True):
     :return:
     """
     if is_windows():
-        pc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        pc = subprocess.Popen(cmd, shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              stdin=DEVNULL)
         stdout, stderr = pc.communicate()
         import win32process
         import win32api
@@ -22,9 +25,9 @@ def exec_cmd(cmd, nice=20, wait=True):
         command = ""
         for c in cmd:
             command += " " + c
-        print command
+        print(command)
         pc = subprocess.Popen(["/bin/sh", "-c", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = pc.communicate()
     if wait:
         pc.wait()
-    print str(stderr) + "\n" + str(stdout)
+    print(str(stderr) + "\n" + str(stdout))

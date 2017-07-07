@@ -133,7 +133,7 @@ class Task(object):
             self.should_wait = should_wait
             self.ctd = ctd
 
-            for key, value in kwargs.iteritems():
+            for key, value in kwargs.items():
                 setattr(self, key, value)
 
     @classmethod
@@ -351,6 +351,12 @@ class Task(object):
 
     def get_output_names(self):
         """ Return list of files containing final import task results
+        :return list:
+        """
+        return []
+
+    def get_output_states(self):
+        """ Return list of states of final task results
         :return list:
         """
         return []

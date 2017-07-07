@@ -10,10 +10,10 @@ from gui.controller.paymentsdialogcustomizer import PaymentTableElem, IncomeTabl
 class TestTableElem(unittest.TestCase):
     def test_payment_table_elem(self):
         ethereum_address_hex = "aabbccddeeffaabbccddeeffaabbccddeeff0011"
-        ethereum_address = ethereum_address_hex.decode('hex')
-        a = PaymentTableElem({"status": PaymentStatus.awaiting.value,
-                              "payee": ethereum_address,
-                              "subtask": "ABC", "value": 209*10**15,
+        a = PaymentTableElem({"status": str(PaymentStatus.awaiting.name),
+                              "payee": str(ethereum_address_hex),
+                              "subtask": "ABC",
+                              "value": str(209*10**15),
                               "fee": None})
         for i in range(len(a.cols)):
             self.assertIsInstance(a.get_column_item(i), QTableWidgetItem)
@@ -24,9 +24,10 @@ class TestTableElem(unittest.TestCase):
 
     def test_income_table_elem(self):
         ethereum_address_hex = "ffbbccddeeffaabbccddeeffaabbccddeeff0088"
-        ethereum_address = ethereum_address_hex.decode('hex')
-        b = IncomeTableElem({"status": PaymentStatus.confirmed, "value": 211 * 10**16,
-                             "payer": ethereum_address, "block_number": "ABB"})
+        b = IncomeTableElem({"status": str(PaymentStatus.confirmed.name),
+                             "value": str(211 * 10**16),
+                             "payer": str(ethereum_address_hex),
+                             "block_number": "ABB"})
         for i in range(len(b.cols)):
             self.assertIsInstance(b.get_column_item(i), QTableWidgetItem)
         self.assertEqual(b.get_column_item(0).text(), ethereum_address_hex)

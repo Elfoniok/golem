@@ -26,9 +26,20 @@ class EthereumClientTest(TempDirFixture):
         assert type(s) is bool
         addr = b'FakeEthereumAddress!'
         assert len(addr) == 20
-        c = client.get_transaction_count('0x' + addr.encode('hex'))
+        hex_addr = '0x' + addr.encode('hex')
+        c = client.get_transaction_count(hex_addr)
         assert type(c) is int
         assert c == 0
+        b = client.get_balance(hex_addr)
+        assert b == 0
+
+        # Patch web3.py to throw exception in getBalance.
+        def raise_in_getBalance(addr, block):
+            raise ValueError({'message': 'getBalance error!'})
+
+        client.web3.eth.getBalance = raise_in_getBalance
+        b = client.get_balance(hex_addr)
+        assert b == 0
 
     def test_send_raw_transaction(self):
         client = self.client
@@ -42,7 +53,7 @@ class EthereumClientTest(TempDirFixture):
         priv = '\xee' * 32
         tx = Transaction(1, 20 * 10**9, 21000, to=addr, value=0, data=b'')
         tx.sign(priv)
-        with self.assertRaisesRegexp(ValueError, "[Ii]nsufficient funds"):
+        with self.assertRaisesRegex(ValueError, "[Ii]nsufficient funds"):
             client.send(tx)
 
     def test_start_terminate(self):
@@ -67,7 +78,7 @@ class EthereumClientTest(TempDirFixture):
         """ Test creating filter and getting logs """
         client = self.client
         filter_id = client.new_filter()
-        assert type(filter_id) is unicode
+        assert type(filter_id) is str
         # Filter id is hex encoded 256-bit integer.
         assert filter_id.startswith('0x')
         number = int(filter_id, 16)

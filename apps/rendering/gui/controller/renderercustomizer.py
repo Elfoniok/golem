@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from PyQt5.QtWidgets import QFileDialog
 
+from apps.rendering.task.framerenderingtask import FrameRenderingTaskBuilder
 from gui.controller.customizer import Customizer
 
 logger = logging.getLogger("apps.rendering")
@@ -69,9 +70,9 @@ class RendererCustomizer(Customizer):
         definition.options = self.options
         definition.resolution = [self.gui.ui.outputResXSpinBox.value(), self.gui.ui.outputResYSpinBox.value()]
         definition.output_file = self._add_ext_to_out_filename()
-        definition.output_format = u"{}".format(
+        definition.output_format = "{}".format(
             self.gui.ui.outputFormatsComboBox.itemText(self.gui.ui.outputFormatsComboBox.currentIndex()))
-        definition.main_scene_file = u"{}".format(
+        definition.main_scene_file = "{}".format(
             self.gui.ui.mainSceneFileLineEdit.text())
 
     def _change_options(self):
@@ -96,10 +97,10 @@ class RendererCustomizer(Customizer):
         ext = ext[1:]
         if self.gui.ui.outputFormatsComboBox.findText(ext) != -1 or \
                         self.gui.ui.outputFormatsComboBox.findText(ext.upper()) != -1:
-            self.gui.ui.outputFileLineEdit.setText(u"{}.{}".format(file_name, chosen_ext))
+            self.gui.ui.outputFileLineEdit.setText("{}.{}".format(file_name, chosen_ext))
         else:
-            self.gui.ui.outputFileLineEdit.setText(u"{}.{}".format(out_file_name, chosen_ext))
-        return u"{}".format(str(self.gui.ui.outputFileLineEdit.text()))
+            self.gui.ui.outputFileLineEdit.setText("{}.{}".format(out_file_name, chosen_ext))
+        return "{}".format(str(self.gui.ui.outputFileLineEdit.text()))
 
     def _connect_with_task_settings_changed(self, list_gui_el):
         for gui_el in list_gui_el:
@@ -118,9 +119,9 @@ class RendererCustomizer(Customizer):
             output_file_ext.append(ext.upper())
             output_file_ext.append(ext.lower())
 
-        output_file_types = " ".join([u"*.{}".format(ext) for ext in output_file_ext])
-        filter_ = u"Scene files ({})".format(output_file_types)
-        path = u"{}".format(str(self.load_setting('main_scene_path', os.path.expanduser('~'))))
+        output_file_types = " ".join(["*.{}".format(ext) for ext in output_file_ext])
+        filter_ = "Scene files ({})".format(output_file_types)
+        path = "{}".format(str(self.load_setting('main_scene_path', os.path.expanduser('~'))))
 
         file_name, _ = QFileDialog.getOpenFileName(self.gui,
                                                    "Choose main scene file",
@@ -131,10 +132,10 @@ class RendererCustomizer(Customizer):
             self.gui.ui.mainSceneFileLineEdit.setText(file_name)
 
     def _choose_output_file_button_clicked(self):
-        output_file_type = u"{}".format(self.gui.ui.outputFormatsComboBox.currentText())
-        filter_ = u"{} (*.{})".format(output_file_type, output_file_type)
+        output_file_type = "{}".format(self.gui.ui.outputFormatsComboBox.currentText())
+        filter_ = "{} (*.{})".format(output_file_type, output_file_type)
 
-        path = u"{}".format(str(self.load_setting('output_file_path', os.path.expanduser('~'))))
+        path = "{}".format(str(self.load_setting('output_file_path', os.path.expanduser('~'))))
 
         file_name, _ = QFileDialog.getSaveFileName(self.gui,
                                                    "Choose output file",
@@ -170,89 +171,32 @@ class FrameRendererCustomizer(RendererCustomizer):
         self.gui.ui.framesCheckBox.setChecked(self.options.use_frames)
         self.gui.ui.framesLineEdit.setEnabled(self.options.use_frames)
         if self.options.use_frames:
-            self.gui.ui.framesLineEdit.setText(self.frames_to_string(self.options.frames))
+            self.gui.ui.framesLineEdit.setText(self.options.frames)
         else:
             self.gui.ui.framesLineEdit.setText("")
 
     def _change_options(self):
         self.options.use_frames = self.gui.ui.framesCheckBox.isChecked()
         if self.options.use_frames:
-            frames = self.string_to_frames(self.gui.ui.framesLineEdit.text())
-            if not frames:
-                self.show_error_window(u"Wrong frame format. Frame list expected, e.g. 1;3;5-12.")
+            frames = self.gui.ui.framesLineEdit.text()
+            # This is a temporary solution for current interface
+            frames_list = FrameRenderingTaskBuilder.string_to_frames(frames)
+            if not frames_list:
+                self.show_error_window("Wrong frame format. "
+                                       "Frame list expected, e.g. 1;3;5-12.")
                 return
-            self.options.frames = frames
+        else:
+            frames = "1"
+
+        self.options.frames = frames
+        # FIXME: CoreTask uses frames_string for frame conversion
+        self.options.frames_string = frames
 
     def _frames_changed(self):
         self.logic.task_settings_changed()
 
     def _frames_check_box_changed(self):
-        self.gui.ui.framesLineEdit.setEnabled(self.gui.ui.framesCheckBox.isChecked())
+        self.gui.ui.framesLineEdit.setEnabled(
+            self.gui.ui.framesCheckBox.isChecked())
         if self.gui.ui.framesCheckBox.isChecked():
-            self.gui.ui.framesLineEdit.setText(self.frames_to_string(self.options.frames))
-
-    @staticmethod
-    def frames_to_string(frames):
-        s = ""
-        last_frame = None
-        interval = False
-        try:
-            for frame in sorted(frames):
-                frame = int(frame)
-                if frame < 0:
-                    raise ValueError("Frame number must be greater or equal to 0")
-
-                if last_frame is None:
-                    s += str(frame)
-                elif frame - last_frame == 1:
-                    if not interval:
-                        s += '-'
-                        interval = True
-                elif interval:
-                    s += str(last_frame) + ";" + str(frame)
-                    interval = False
-                else:
-                    s += ';' + str(frame)
-
-                last_frame = frame
-
-        except (ValueError, AttributeError, TypeError) as err:
-            logger.error("Wrong frame format: {}".format(err))
-            return ""
-
-        if interval:
-            s += str(last_frame)
-
-        return s
-
-    @staticmethod
-    def string_to_frames(s):
-        try:
-            frames = []
-            after_split = s.split(";")
-            for i in after_split:
-                inter = i.split("-")
-                if len(inter) == 1:  # pojedyncza klatka (np. 5)
-                    frames.append(int(inter[0]))
-                elif len(inter) == 2:
-                    inter2 = inter[1].split(",")
-                    if len(inter2) == 1:  # przedzial klatek (np. 1-10)
-                        start_frame = int(inter[0])
-                        end_frame = int(inter[1]) + 1
-                        frames += range(start_frame, end_frame)
-                    elif len(inter2) == 2:  # co n-ta klata z przedzialu (np. 10-100,5)
-                        start_frame = int(inter[0])
-                        end_frame = int(inter2[0]) + 1
-                        step = int(inter2[1])
-                        frames += range(start_frame, end_frame, step)
-                    else:
-                        raise ValueError("Wrong frame step")
-                else:
-                    raise ValueError("Wrong frame range")
-            return sorted(frames)
-        except ValueError as err:
-            logger.warning("Wrong frame format: {}".format(err))
-            return []
-        except (AttributeError, TypeError) as err:
-            logger.error("Problem with change string to frame: {}".format(err))
-            return []
+            self.gui.ui.framesLineEdit.setText(self.options.frames)

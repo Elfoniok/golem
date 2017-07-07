@@ -14,24 +14,12 @@ CrossbarRouterOptions = namedtuple('CrossbarRouterOptions', ['cbdir', 'logdir', 
                                                              'argv', 'config'])
 
 
-class LoggerBridge(object):
-
-    def __getattr__(self, item):
-        def bridge(_msg, *_, **kwargs):
-            attr = 'error' if not hasattr(logger, item) else item
-            kwargs = {k: v for k, v in kwargs.iteritems()
-                      if '{{{k}}}'.format(k=k) in _msg}
-            return getattr(logger, attr)(_msg.format(**kwargs))
-        return bridge
-
-
 class CrossbarRouter(object):
 
-    serializers = [u'msgpack']
+    serializers = ['msgpack']
 
-    def __init__(self, host='localhost', port=61000, realm=u'golem',
+    def __init__(self, host='localhost', port=61000, realm='golem',
                  datadir=None, crossbar_dir='crossbar', crossbar_log_level='trace'):
-
         if datadir:
             self.working_dir = os.path.join(datadir, crossbar_dir)
         else:
@@ -67,12 +55,10 @@ class CrossbarRouter(object):
 
     def _start_node(self, options, reactor):
         self.node = Node(options.cbdir, reactor=reactor)
-        self.node.log = LoggerBridge()
         self.pubkey = self.node.maybe_generate_key(options.cbdir)
 
         checkconfig.check_config(self.config)
         self.node._config = self.config
-
         return self.node.start()
 
     def _build_options(self, argv=None, config=None):
@@ -85,24 +71,24 @@ class CrossbarRouter(object):
         )
 
     @staticmethod
-    def _build_config(address, serializers, allowed_origins=u'*', realm=u'golem', enable_webstatus=False):
+    def _build_config(address, serializers, allowed_origins='*', realm='golem', enable_webstatus=False):
         return {
             'version': 2,
             'workers': [{
-                'type': u'router',
+                'type': 'router',
                 'options': {
-                    'title': u'Golem'
+                    'title': 'Golem'
                 },
                 'transports': [
                     {
-                        'type': u'websocket',
+                        'type': 'websocket',
                         'serializers': serializers,
                         'endpoint': {
-                            'type': u'tcp',
-                            'interface': unicode(address.host),
+                            'type': 'tcp',
+                            'interface': str(address.host),
                             'port': address.port
                         },
-                        'url': unicode(address),
+                        'url': str(address),
                         'options': {
                             'allowed_origins': allowed_origins,
                             'enable_webstatus': enable_webstatus,
@@ -113,9 +99,9 @@ class CrossbarRouter(object):
                 "realms": [{
                     "name": realm,
                     "roles": [{
-                        "name": u'anonymous',
+                        "name": 'anonymous',
                         "permissions": [{
-                            "uri": u'*',
+                            "uri": '*',
                             "allow": {
                                 "call": True,
                                 "register": True,
